@@ -25,9 +25,10 @@ from xip_utils import import_map_from_xip
 class MapEditorMainWindow(QMainWindow):
     # map_size_changed = Signal(int, int) # width, height
     
-    def __init__(self):
+    def __init__(self, project_root: Path):
         super().__init__()
-        self.project_root = Path(__file__).resolve().parents[3] # pico-raycaster root
+        # self.project_root = Path(__file__).resolve().parents[3] # pico-raycaster root
+        self.project_root = project_root
         self.setWindowTitle("pico-raycaster — Map Editor")
         self.resize(1000, 700)
 

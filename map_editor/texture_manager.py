@@ -15,8 +15,6 @@ class TextureManager(QObject):
     """
     
     INVALID_TEX_COLOR = "#FF00FF"  # bright magenta for missing textures
-    FILE_LOAD_FAILED = -1
-    FILE_LOAD_SUCCEEDED = 0
     
     def __init__(self, assets_path: Path):
         super().__init__()
@@ -28,7 +26,7 @@ class TextureManager(QObject):
         
         self.load_textures()
         
-    def load_textures(self) -> int:
+    def load_textures(self) -> None:
         """
         Loads texture information from the textures.json file in the assets directory.
         Each texture entry should contain an ID, name, and representative color (rcolor).
@@ -40,9 +38,8 @@ class TextureManager(QObject):
         tex_info_path = Path.joinpath(self.assets_path, "textures.json")
 
         if not tex_info_path.exists():
-            logging.error(f"Texture info file not found: {tex_info_path}")
-            QMessageBox.critical(None, "Error", f"Texture info file not found: {tex_info_path}")
-            return self.FILE_LOAD_FAILED    
+            logging.critical(f"Texture info file not found: {tex_info_path}, exiting.")
+            exit(-1)
     
         with open(tex_info_path, "r") as f: 
             raw_data = json.load(f)
@@ -91,7 +88,6 @@ class TextureManager(QObject):
                     self._textures[tex_id] = {"name": name, "rcolor": color}
                     
         logging.info(f"Loaded {self._texture_count} textures from {tex_info_path}, file version {self._tex_file_version}")
-        return self.FILE_LOAD_SUCCEEDED
         
     def get_textures(self, exclude_shaded: bool = True) -> Dict[int, Dict[str, Union[str, int]]]:
         """

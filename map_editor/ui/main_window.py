@@ -1,7 +1,7 @@
 from pathlib import Path
 import math
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QSignalBlocker
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import (
     QMainWindow,
@@ -166,7 +166,6 @@ class MapEditorMainWindow(QMainWindow):
         self.map_canvas.repaint()
 
     def load_map(self):
-        # TODO Implement the logic to load a map file
         result = QFileDialog.getOpenFileName(self, "Load Map", str(self.project_root), "XIP Files (*.xip)")
         path = result[0]
         
@@ -187,11 +186,14 @@ class MapEditorMainWindow(QMainWindow):
         
         angle_deg = int(math.degrees(math.atan2(angle_y, angle_x))) % 360
         
-        self.player_angle_sb.setValue(angle_deg)
+        with QSignalBlocker(self.player_angle_sb):
+            self.player_angle_sb.setValue(angle_deg)
         
-        # set map size spinboxes
-        self.map_height_sb.setValue(self.project.map.height)
-        self.map_width_sb.setValue(self.project.map.width)
+        # set map size spinboxes (block signals to avoid triggering new_map)
+        with QSignalBlocker(self.map_width_sb):
+            self.map_width_sb.setValue(self.project.map.width)
+        with QSignalBlocker(self.map_height_sb):
+            self.map_height_sb.setValue(self.project.map.height)
     
     def closeEvent(self, event):
         if not self.project.dirty:

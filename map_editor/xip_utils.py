@@ -23,14 +23,17 @@ MAPDATA:
 
 import struct
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, TYPE_CHECKING
 import logging
 
 from map_data import PlayerData, MapData
 
+if TYPE_CHECKING:
+    from project import Project
+
 MAP_VERSION = 100000 # version 1.0.00
 MAP_MAGIC = b'MAP0'
-MAP_MAGIC_BYTES = 0x4D415030
+MAP_MAGIC_BYTES = 0x30504958 # 'MAP0' in little-endian
 
 def export_map_to_xip(filename: Path, player_data: PlayerData, map_data: MapData) -> Tuple[bool, str]:
     """
@@ -68,14 +71,15 @@ def export_map_to_xip(filename: Path, player_data: PlayerData, map_data: MapData
             f.write(struct.pack("<" + "B" * (map_data.width * map_data.height), *map_data.tiles))
             
         return True, ""
+    
     except Exception as e:
         logging.error(f"Error exporting map to {filename}: {e}")
         return False, str(e)
         
-def import_map_from_xip(filename: Path, project_ref) -> Tuple[bool, str]:
+def import_map_from_xip(filename: Path, project_ref: "Project") -> Tuple[bool, str]:
     """
     Import map and player data from a .xip file into the given project reference.
-    OVERWRITES existing map and player data in the project. \n
+    OVERWRITES existing map and player data in the project.
     !-- The caller is responsible for validating the file path before calling this function --!
     
     @param filename: Path to input .xip file
@@ -85,5 +89,67 @@ def import_map_from_xip(filename: Path, project_ref) -> Tuple[bool, str]:
     """
     
     # open, check magic, read header, read data sections, populate project_ref
+    try:
+        with open(filename, "rb") as f:
+            # Read and validate header
+            magic = f.read(4)
+            if magic != MAP_MAGIC:
+                return False, "Invalid .xip file: incorrect magic number"
+            
+            # currently unused, perhaps for future compatibility checks to enable/disable editor features
+            version_bytes = f.read(4)
+            version = struct.unpack('<I', version_bytes)[0]
+            
+            playerdata_offset_bytes = f.read(4)
+            playerdata_offset = struct.unpack('<I', playerdata_offset_bytes)[0]
+            
+            mapdata_offset_bytes = f.read(4)
+            mapdata_offset = struct.unpack('<I', mapdata_offset_bytes)[0]
+            
+            f.read(4)  # RESERVED
+            
+            # Read player data
+            f.seek(playerdata_offset)
+            start_x_bytes = f.read(4)
+            start_x = struct.unpack('<i', start_x_bytes)[0]
+            
+            start_y_bytes = f.read(4)
+            start_y = struct.unpack('<i', start_y_bytes)[0]
+            
+            start_angle_x_bytes = f.read(4)
+            start_angle_x = struct.unpack('<i', start_angle_x_bytes)[0]
+            
+            start_angle_y_bytes = f.read(4)
+            start_angle_y = struct.unpack('<i', start_angle_y_bytes)[0]
+            
+            # Update project player data
+            project_ref.player.start_x = start_x
+            project_ref.player.start_y = start_y
+            project_ref.player.start_angle_x = start_angle_x
+            project_ref.player.start_angle_y = start_angle_y
+            
+            # Read map data
+            f.seek(mapdata_offset)
+            width_byte = f.read(1)
+            width = struct.unpack('<B', width_byte)[0]
+            
+            height_byte = f.read(1)
+            height = struct.unpack('<B', height_byte)[0]
+            
+            tile_count = width * height
+            tiles_bytes = f.read(tile_count)
+            tiles = list(struct.unpack("<" + "B" * tile_count, tiles_bytes))
+            
+            # Update project map data
+            project_ref.new_map(width, height)
+            
+            project_ref.map.width = width
+            project_ref.map.height = height
+            project_ref.map.tiles = tiles
+            
+            return True, ""
+        
+    except Exception as e:
+        logging.error(f"Error importing map from {filename}: {e}")
+        return False, str(e)
     
-    return False, "Import not yet implemented"
